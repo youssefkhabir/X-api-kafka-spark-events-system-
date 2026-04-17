@@ -1,268 +1,283 @@
-# Rapport du projet : Pipeline temps reel avec Flask, Kafka, Spark et analyse de sentiment
+# Rapport du projet : plateforme d'analyse temps reel avec Flask, Kafka, Spark et IA
 
-## 1. Contexte
+## 1. Introduction
 
-Ce projet a ete realise pour repondre au TP sur l'analyse de messages de reseaux sociaux en temps reel. L'objectif principal est de construire une chaine de traitement capable de collecter des messages, de les envoyer dans Kafka, de les analyser avec Spark Structured Streaming, puis d'exposer les resultats dans une interface web exploitable pendant une presentation.
+Ce projet presente une petite plateforme d'analyse de flux de messages en temps reel. L'objectif est de construire une chaine complete capable de :
 
-Le sujet du TP met l'accent sur plusieurs notions importantes :
+- collecter des messages
+- les publier dans Kafka
+- les traiter en continu avec Spark Structured Streaming
+- enrichir les donnees par analyse de sentiment
+- exposer les resultats dans une interface web et une API documentee
 
-- le stream processing
-- l'ingestion de donnees temps reel
-- l'utilisation de Kafka comme systeme de transport d'evenements
-- l'utilisation de Spark Structured Streaming pour l'analyse continue
-- la comparaison entre une methode simple de type lexique et une approche d'apprentissage automatique
+Le systeme a ete pense comme une base simple, modulaire et demonstrable pour illustrer une architecture orientee evenements appliquee a l'analyse de contenu textuel.
 
-## 2. Objectif du systeme realise
+## 2. Objectif du projet
 
-Le systeme final a ete pense comme une petite plateforme de supervision d'evenements sociaux autour d'un sujet donne.
+L'objectif principal est de transformer un flux de messages bruts en informations exploitables quasi en temps reel.
+
+Le projet cherche plus precisement a fournir :
+
+- une ingestion de donnees souple
+- un transport fiable des evenements via Kafka
+- un traitement streaming avec Spark
+- une analyse de sentiment simple et interpretable
+- une extension vers l'intelligence artificielle via un modele supervise
+- une visualisation claire pour la consultation et la demonstration
+
+## 3. Vue d'ensemble de l'architecture
 
 Le pipeline retenu est le suivant :
 
-`X API ou jeu de donnees local -> Flask -> Kafka -> Spark Structured Streaming -> topic predictions -> Dashboard + Swagger UI`
+`Source de messages -> Flask -> Kafka raw_posts -> Spark Structured Streaming -> Kafka predictions -> Dashboard + API`
 
-Cette architecture permet de montrer clairement les differentes etapes du traitement temps reel :
+Cette architecture se compose de cinq blocs principaux :
 
-1. collecte ou simulation des messages
-2. publication dans Kafka
-3. traitement en continu dans Spark
-4. calcul des indicateurs de sentiment et des hashtags
-5. exposition des resultats dans une API et un tableau de bord
+1. une source de messages
+2. une couche d'ingestion Flask
+3. un bus d'evenements Kafka
+4. une couche d'analyse Spark
+5. une couche de consultation via dashboard et Swagger UI
 
-## 3. Choix d'architecture
+## 4. Description des composants
 
-### 3.1 Flask
+### 4.1 Source de donnees
 
-Flask joue ici le role de couche d'orchestration et de presentation.
+Le systeme prend en charge deux modes d'alimentation :
 
-Il permet :
+- un mode local base sur un fichier JSONL d'exemple
+- un mode distant base sur l'API X via un bearer token
 
-- d'exposer des endpoints HTTP simples pour lancer l'envoi de donnees
-- de centraliser la configuration du projet
-- de fournir une page dashboard pour la demonstration
-- de fournir une documentation interactive avec Swagger UI
+Le mode local permet de tester et de presenter le projet sans dependre d'une API externe. Le mode distant permet de montrer une integration avec une source reelle.
 
-Le choix de Flask est pertinent pour un mini projet car il est leger, lisible et rapide a mettre en place.
+### 4.2 Flask
 
-### 3.2 Kafka
+Flask est utilise comme couche applicative centrale.
 
-Kafka est utilise comme bus d'evenements. Il se situe entre la collecte et l'analyse.
+Ses responsabilites sont les suivantes :
+
+- servir le dashboard principal
+- exposer les endpoints HTTP
+- publier des evenements dans Kafka
+- fournir une specification OpenAPI
+- servir l'interface Swagger UI
+
+Le choix de Flask est adapte a un projet compact car il permet de garder une structure simple tout en offrant une base suffisante pour une API et une interface web.
+
+### 4.3 Kafka
+
+Kafka joue le role de colonne vertebrale de l'application.
 
 Deux topics sont utilises :
 
-- `raw_posts` : messages bruts envoyes depuis Flask
-- `predictions` : messages enrichis par Spark apres analyse
+- `raw_posts` pour les messages bruts
+- `predictions` pour les messages enrichis apres traitement
 
-Ce decouplage est important car il montre bien la separation entre :
+Ce decouplage apporte plusieurs avantages :
 
-- l'etape d'ingestion
-- l'etape de traitement
-- l'etape d'exploitation des resultats
+- separation claire entre ingestion et analyse
+- reutilisation possible des donnees brutes
+- possibilite d'ajouter d'autres consommateurs plus tard
+- meilleure lisibilite de l'architecture
 
-### 3.3 Spark Structured Streaming
+### 4.4 Spark Structured Streaming
 
-Spark consomme les messages depuis Kafka, applique un schema, enrichit les donnees et calcule des indicateurs.
+Spark consomme les messages depuis Kafka et applique le traitement en continu.
 
-Les traitements mis en place sont :
+Les principales etapes sont :
 
-- lecture du flux Kafka
-- parsing JSON
-- calcul du score lexicographique
-- affectation d'un label de sentiment
+- lecture du topic Kafka
+- conversion du JSON en structure exploitable
+- calcul du score de sentiment
+- attribution d'un label
 - extraction des hashtags
-- agregations par fenetre temporelle
-- republication des donnees enrichies dans un topic Kafka
+- agregations sur des fenetres temporelles
+- republication des donnees enrichies dans Kafka
 
-Spark est ici le moteur central d'analyse temps reel.
+Spark a ete choisi pour sa capacite a traiter des flux de donnees de facon declarative et pour sa bonne integration avec Kafka.
 
-### 3.4 Couche IA
+### 4.5 Couche IA
 
-L'IA a ete introduite sous la forme d'un modele supervise simple.
+Une extension IA a ete ajoutee sous forme d'un modele supervise simple.
 
-Le choix retenu est :
+Le pipeline de prediction utilise :
 
-- vectorisation TF-IDF
-- classification par Logistic Regression
+- une vectorisation TF-IDF
+- un classifieur Logistic Regression
 
-Ce choix est volontairement pragmatique :
+Ce modele reste volontairement leger. Le but n'est pas de construire un systeme de classification de production, mais d'ajouter une dimension predictive au projet et de comparer deux approches :
 
-- facile a expliquer en classe
-- simple a entrainer
-- rapide a executer
-- pertinent pour comparer avec la methode lexicale
+- une approche par regles lexicales
+- une approche basee sur l'apprentissage automatique
 
-L'application donne donc deux niveaux d'analyse :
+## 5. Fonctionnement detaille du pipeline
 
-- une baseline lexicale
-- une prediction ML optionnelle
+Le pipeline complet peut etre decrit comme suit :
 
-## 4. Approche de realisation
+### Etape 1 : ingestion
 
-Le travail a ete organise par etapes afin de construire un systeme demonstrable le plus vite possible.
+Un message est recupere soit depuis le fichier local, soit depuis l'API X. Flask convertit ensuite ce message dans un format JSON uniforme contenant les champs principaux :
 
-### Etape 1 : lecture du besoin
+- identifiant
+- source
+- texte
+- langue
+- auteur
+- date de creation
 
-Le PDF du TP a ete lu pour identifier les exigences pedagogiques :
+### Etape 2 : publication dans Kafka
 
-- API X/Twitter
-- Kafka
-- Spark Streaming
-- analyse de sentiment
-- ouverture vers une approche ML
+Le message est envoye dans le topic `raw_posts`.
 
-### Etape 2 : definition d'un mode realiste
+Cette etape permet de rendre les donnees disponibles pour un ou plusieurs consommateurs independants.
 
-Une contrainte pratique a ete prise en compte : l'acces a l'API X peut etre limite selon le niveau de compte. Pour eviter qu'un probleme d'acces bloque la demonstration, deux modes ont ete prevus :
+### Etape 3 : traitement Spark
 
-- un mode `reel` avec appel a l'API X
-- un mode `demo-safe` base sur un fichier local JSONL rejoue dans Kafka
+Spark lit le flux depuis Kafka puis applique plusieurs transformations :
 
-Ce choix permet de garantir que le pipeline fonctionne meme sans acces complet a l'API X.
+- parsing du payload
+- enrichissement du message
+- calcul du score lexicographique
+- extraction des hashtags
+- prediction ML si le modele est disponible
 
-### Etape 3 : mise en place du producteur
+### Etape 4 : production des resultats
 
-Un producteur Kafka a ete implemente dans Flask afin de publier des evenements JSON dans le topic `raw_posts`.
+Spark publie les messages enrichis dans le topic `predictions`.
 
-Deux routes d'alimentation ont ete ajoutees :
+En parallele, des sorties console sont produites pour montrer :
 
-- publication depuis un fichier local d'exemple
-- publication depuis l'API X via un bearer token
+- le nombre de messages par sentiment
+- la repartition des hashtags par fenetre temporelle
 
-### Etape 4 : mise en place du consumer Spark
+### Etape 5 : exposition des resultats
 
-Un script Spark Structured Streaming a ete developpe pour :
+Le dashboard Flask lit les messages les plus recents dans Kafka et construit un resume :
 
-- lire les messages depuis Kafka
-- extraire les champs utiles
-- enrichir chaque message
-- calculer les agregats de sentiment et hashtags
-- republier les resultats dans `predictions`
+- volume global
+- ratios de sentiments
+- balance positif / negatif
+- hashtags dominants
+- chronologie recente
+- derniers evenements traites
 
-### Etape 5 : ajout du modele ML
+## 6. Analyse de sentiment
 
-Un petit script d'entrainement a ete ajoute pour produire un modele de classification. Ce modele est charge automatiquement par Spark s'il est disponible.
+### 6.1 Methode lexicale
 
-Ainsi, le projet peut fonctionner :
+La premiere methode utilise un petit lexique de mots positifs et negatifs.
 
-- avec uniquement l'approche lexicale
-- ou avec l'approche lexicale + ML
+Le principe est simple :
 
-### Etape 6 : ajout de la couche presentation
+- chaque mot positif augmente le score
+- chaque mot negatif diminue le score
+- le signe final du score determine le label
 
-Deux briques ont ete ajoutees pour la presentation finale :
+Cette methode est utile pour plusieurs raisons :
 
-- Swagger UI pour tester facilement les endpoints
-- un dashboard web pour suivre les indicateurs de facon visuelle
+- elle est rapide
+- elle est interpretable
+- elle est facile a expliquer
+- elle fonctionne sans phase d'entrainement
 
-## 5. Composants implementes
+### 6.2 Methode supervisee
 
-### 5.1 API Flask
+La seconde methode repose sur un modele de classification entraine sur un petit jeu d'exemples.
 
-Les principales routes disponibles sont :
+Cette approche permet d'introduire une logique plus flexible que la simple recherche de mots-clés. Elle montre aussi comment un composant d'IA peut etre integre dans un pipeline streaming.
 
-- `GET /` : dashboard principal
-- `GET /health` : etat de l'application
-- `POST /publish/sample` : envoi de donnees d'exemple vers Kafka
-- `POST /publish/x` : envoi de donnees depuis X vers Kafka
-- `GET /api/openapi.json` : specification OpenAPI
-- `GET /api/docs` : interface Swagger UI
-- `GET /api/dashboard/summary` : resume dashboard
-- `GET /api/dashboard/events` : derniers evenements visibles
+## 7. Dashboard et visualisation
 
-### 5.2 Analyse lexicale
+Le dashboard a ete concu pour etre lisible, moderne et utile pendant une presentation.
 
-Une liste de mots positifs et negatifs est utilisee pour calculer un score simple :
+Il affiche :
 
-- score > 0 : positif
-- score < 0 : negatif
-- score = 0 : neutre
+- les indicateurs principaux en haut de page
+- un graphe simplifie du rythme des evenements
+- une repartition visuelle des sentiments
+- les hashtags les plus frequents
+- les sources detectees
+- la liste des derniers messages vus
 
-Cette methode est simple, interpretable, et correspond directement a l'attendu du TP.
+Le dashboard interroge periodiquement l'endpoint `/api/dashboard/summary` afin d'actualiser les donnees automatiquement.
 
-### 5.3 Modele ML
+## 8. Documentation de l'API
 
-Le modele supervise repose sur un petit jeu d'exemples d'entrainement integre au projet. L'idee n'est pas de viser la meilleure performance academique, mais de montrer l'integration d'une couche d'intelligence artificielle dans un pipeline temps reel.
+L'application expose une documentation interactive via Swagger UI.
 
-### 5.4 Dashboard
+Cette partie est importante pour :
 
-Le dashboard a ete pense pour la soutenance. Il affiche :
+- comprendre rapidement les routes disponibles
+- tester les endpoints sans outil externe
+- presenter l'API de maniere claire
 
-- le volume total d'evenements
-- le ratio de sentiments positifs et negatifs
-- la balance de sentiment
-- le rythme d'arrivee des messages
-- les hashtags dominants
-- les derniers evenements traites
+Les principales routes exposees sont :
 
-Le dashboard lit en priorite les donnees du topic `predictions`. Si celui-ci est vide, il bascule en lecture sur `raw_posts` pour conserver un affichage fonctionnel.
+- `GET /`
+- `GET /health`
+- `POST /publish/sample`
+- `POST /publish/x`
+- `GET /api/openapi.json`
+- `GET /api/docs`
+- `GET /api/dashboard/summary`
+- `GET /api/dashboard/events`
 
-### 5.5 Swagger UI
+## 9. Choix techniques et justification
 
-Swagger UI permet de tester rapidement l'API sans Postman ni outil externe. L'integration repose sur une page HTML servant l'interface Swagger et pointant vers la specification OpenAPI locale.
+Plusieurs choix ont ete faits pour conserver un bon equilibre entre simplicite et valeur demonstrative.
 
-Cette partie est utile pour :
+### Flask
 
-- verifier les endpoints
-- montrer la structure de l'API
-- faciliter les demonstrations en classe
+Flask permet de centraliser la partie web et API avec peu de complexite.
 
-## 6. Pipeline fonctionnel
+### Kafka
 
-Le fonctionnement global du systeme est le suivant :
+Kafka est adapte des qu'il faut transporter des evenements de maniere decouplee et robuste.
 
-1. L'utilisateur lance Zookeeper et Kafka localement.
-2. L'utilisateur lance l'application Flask.
-3. L'utilisateur lance le script Spark Structured Streaming.
-4. Les messages sont publies vers `raw_posts`.
-5. Spark consomme le flux, calcule les indicateurs, puis ecrit dans `predictions`.
-6. Le dashboard lit les resultats et les affiche en temps reel.
-7. Swagger UI permet de tester les routes a tout moment.
+### Spark Structured Streaming
 
-## 7. Apport de l'intelligence artificielle
+Spark permet de traiter un flux continu avec une logique proche du traitement batch, tout en restant lisible.
 
-L'ajout de l'IA dans ce projet se manifeste par l'integration d'un modele de classification supervisee.
+### Mode local + mode distant
 
-L'interet pedagogique est double :
+La coexistence d'un mode local et d'un mode distant rend le projet plus robuste et plus facile a montrer dans differents contextes.
 
-- montrer qu'un pipeline streaming peut integrer un composant ML
-- comparer une methode simple basee sur un lexique avec une methode predictive
+### IA legere
 
-Cette comparaison permet d'expliquer plusieurs notions :
+Un modele simple a ete prefere a une solution lourde afin de rester coherent avec la taille du projet et la facilite d'explication.
 
-- la simplicite et la rapidite d'une methode par regles
-- la flexibilite d'un modele appris
-- les limites d'un jeu d'entrainement trop petit
+## 10. Limites du projet
 
-## 8. Limites actuelles
+Le projet reste volontairement compact. Il presente donc certaines limites :
 
-Le projet est volontairement compact. Il existe donc plusieurs limites :
+- le modele ML repose sur un tres petit jeu d'apprentissage
+- le dashboard lit Kafka directement, sans couche de stockage historique
+- l'API X depend des droits d'acces du compte developpeur
+- la visualisation reste simple et cible surtout la demonstration
 
-- le modele ML est entraine sur un tres petit jeu de donnees
-- le dashboard lit Kafka a la demande au lieu d'utiliser un stockage specialise
-- l'acces reel a l'API X depend du niveau d'acces developpeur
-- il n'y a pas encore de base de donnees historique
+Ces limites sont acceptees car elles permettent de garder un systeme lisible et facile a faire evoluer.
 
-Ces limites sont acceptees dans le cadre d'un mini projet pedagogique car elles permettent de privilegier la clarte de l'architecture.
+## 11. Pistes d'amelioration
 
-## 9. Ameliorations possibles
+Plusieurs evolutions sont possibles :
 
-Plusieurs extensions peuvent etre ajoutees ensuite :
+- brancher une base de donnees pour stocker l'historique
+- utiliser un vrai dataset annote pour ameliorer le modele ML
+- ajouter des alertes sur pics de traffic ou de sentiment negatif
+- produire des graphiques plus avances
+- conteneuriser toute l'architecture avec Docker Compose
+- ajouter une authentification pour les routes sensibles
 
-- stockage des resultats dans PostgreSQL ou Elasticsearch
-- ajout de graphiques historiques plus pousses
-- enrichissement du modele ML avec un vrai dataset annote
-- systeme d'alertes sur pics d'activite
-- deploiement avec Docker Compose
-- authentification des endpoints d'administration
+## 12. Conclusion
 
-## 10. Conclusion
+Le projet realise constitue une plateforme complete d'analyse de messages en temps reel.
 
-Le projet realise repond aux objectifs essentiels du TP :
+Il montre comment assembler plusieurs briques complementaires :
 
-- ingestion d'un flux de messages
-- publication dans Kafka
-- traitement temps reel avec Spark Structured Streaming
-- analyse de sentiment
-- ouverture vers une approche IA
-- presentation via dashboard et documentation interactive
+- Flask pour l'exposition web et API
+- Kafka pour le transport d'evenements
+- Spark pour le traitement streaming
+- une logique d'analyse de sentiment
+- une couche de visualisation et de documentation
 
-L'approche retenue privilegie la robustesse de demonstration, la lisibilite du pipeline et la clarte pedagogique. Le resultat est un mini systeme coherent, presentable en classe, et suffisamment modulaire pour etre enrichi ensuite.
+Le resultat est une architecture claire, modulaire et evolutive, suffisamment simple pour etre comprise rapidement, mais assez riche pour illustrer une vraie chaine de traitement orientee evenements avec une composante IA.

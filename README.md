@@ -1,68 +1,147 @@
 # Kafka Events System
 
-This project implements the TP pipeline requested in `TP_spark3.pdf`:
+This project is a small real-time event analytics platform built with Flask, Kafka, Spark Structured Streaming, and a lightweight sentiment analysis layer.
 
-- collect posts from X or replay sample data
-- publish events into Kafka
-- consume and analyze the stream with Spark Structured Streaming
-- compare a lexicon sentiment baseline with an optional ML model
-- expose Swagger UI for API testing
-- display a presentation-ready dashboard backed by Kafka data
+It collects social-style messages, publishes them to Kafka, processes them with Spark, and exposes the results through a web dashboard and documented API endpoints.
 
-## Architecture
+## What the project does
 
-`Flask app -> Kafka topic -> Spark Structured Streaming -> console aggregates / dashboard`
+The system supports two ingestion modes:
 
-## Prerequisites
+- sample replay from a local JSONL file for demos and local testing
+- live fetch from X API using a bearer token
 
-- Kafka running locally on `localhost:9092`
-- Zookeeper running locally on `localhost:2181`
-- Python 3.10+
+Once messages are ingested:
+
+1. Flask publishes raw events to the Kafka topic `raw_posts`
+2. Spark Structured Streaming consumes the stream from Kafka
+3. Spark enriches each event with:
+   - lexicon-based sentiment
+   - extracted hashtags
+   - optional ML sentiment prediction if a trained model is available
+4. Spark writes enriched events to the Kafka topic `predictions`
+5. The dashboard reads recent Kafka messages and displays live metrics
+
+## Main components
+
+### Flask app
+
+The Flask application is responsible for:
+
+- serving the dashboard UI
+- exposing API endpoints
+- publishing sample or live X events into Kafka
+- serving Swagger UI and the OpenAPI specification
+
+### Kafka
+
+Kafka acts as the event backbone of the system.
+
+Topics used by default:
+
+- `raw_posts`: raw incoming events
+- `predictions`: processed and enriched events produced by Spark
+
+### Spark Structured Streaming
+
+Spark continuously reads Kafka events, parses them, enriches them, aggregates them, and republishes processed results.
+
+The current processing includes:
+
+- JSON parsing
+- lexicon sentiment scoring
+- sentiment labeling
+- hashtag extraction
+- windowed console aggregations
+- optional ML sentiment inference
+
+### Dashboard
+
+The main dashboard is available at the root route `/`.
+
+It displays:
+
+- total recent events
+- positive and negative ratios
+- sentiment balance
+- event rhythm over time
+- top hashtags
+- source breakdown
+- latest processed messages
+
+The dashboard reads the `predictions` topic first. If it is empty, it falls back to `raw_posts`.
+
+### Swagger UI
+
+Interactive API documentation is available through Swagger UI, which makes the endpoints easier to test from a browser.
+
+## Available routes
+
+- `GET /` live dashboard
+- `GET /health` application health and runtime configuration summary
+- `POST /publish/sample?limit=6&delay=1` publish sample events into Kafka
+- `POST /publish/x` fetch recent posts from X and publish them into Kafka
+- `GET /api/openapi.json` OpenAPI specification
+- `GET /api/docs` Swagger UI
+- `GET /api/dashboard/summary` dashboard aggregate data
+- `GET /api/dashboard/events` latest events visible to the dashboard
+
+## Project flow
+
+The normal execution flow is:
+
+1. Start Zookeeper and Kafka locally
+2. Start the Flask app
+3. Start the Spark consumer
+4. Publish events using either the sample route or the X route
+5. Open the dashboard or Swagger UI in the browser
+
+## Local setup
+
+Requirements:
+
+- Kafka running on `localhost:9092`
+- Zookeeper running on `localhost:2181`
 - Java installed for Spark
 
-## Install
+Use the local virtual environment already prepared in `.venv`.
 
-```powershell
-Copy-Item .env.example .env
-```
-
-The project-local environment has already been prepared in `.venv`. Use `.\.venv\Scripts\python.exe` for all commands below.
-
-## Train the optional ML model
+### Train the optional ML model
 
 ```powershell
 .\.venv\Scripts\python.exe -m ml.train_model
 ```
 
-## Start the Flask app
+### Start the Flask app
 
 ```powershell
 .\.venv\Scripts\python.exe app.py
 ```
 
-Available routes:
-
-- `GET /` live dashboard
-- `GET /health` app health and config summary
-- `POST /publish/sample?limit=6&delay=1` replay sample posts into Kafka
-- `POST /publish/x` fetch recent X posts and publish them into Kafka
-- `GET /api/openapi.json` local OpenAPI specification
-- `GET /api/docs` Swagger UI
-- `GET /api/dashboard/summary` dashboard aggregates
-- `GET /api/dashboard/events` latest dashboard-visible events
-
-## Start the Spark consumer
+### Start the Spark consumer
 
 ```powershell
-.\.venv\Scripts\python.exe analytics\spark_consumer.py --help
 spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.5 analytics\spark_consumer.py --kafka-bootstrap localhost:9092 --topic raw_posts --predictions-topic predictions
 ```
 
-If you trained the ML model first, the stream output will also include `ml_sentiment` and Spark will publish enriched records to the `predictions` topic.
+## Configuration
+
+Configuration is loaded from `.env`.
+
+Important variables:
+
+- `KAFKA_BOOTSTRAP_SERVERS`
+- `KAFKA_TOPIC_RAW`
+- `KAFKA_TOPIC_PREDICTIONS`
+- `X_BEARER_TOKEN`
+- `X_QUERY`
+- `X_SEARCH_MAX_RESULTS`
+- `MODEL_PATH`
+
+Use `.env.example` as the template.
 
 ## Notes
 
-- If the X API access level does not allow recent search or the token is missing, use the sample replay route for the demo.
-- The Spark script prints windowed sentiment counts and hashtag counts to the console.
-- The dashboard reads the `predictions` topic first and falls back to `raw_posts` if Spark has not produced enriched data yet.
-- The project report is available in `report.md` and is written in French.
+- If X API access is unavailable, the sample replay mode is enough to demonstrate the full pipeline.
+- The trained model is optional. If it is missing, the system still works with lexicon sentiment only.
+- A French project report is included in `report.md`.
