@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kafka Events Dashboard</title>
+    <style>
+      :root {
+        --sand: #f5efe6;
+        --paper: rgba(255, 250, 243, 0.82);
+        --ink: #1a2333;
+        --muted: #607087;
+        --line: rgba(26, 35, 51, 0.12);
+        --brand: #ef6c37;
+        --brand-deep: #b84120;
+        --teal: #1f9d8b;
+        --gold: #d8a840;
+        --danger: #d1495b;
+        --shadow: 0 22px 60px rgba(20, 28, 40, 0.12);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background:
+          radial-gradient(circle at 15% 15%, rgba(239, 108, 55, 0.18), transparent 22%),
+          radial-gradient(circle at 85% 15%, rgba(31, 157, 139, 0.18), transparent 24%),
+          linear-gradient(135deg, #efe3d3, #f8f3ec 45%, #ece8dd 100%);
+        min-height: 100vh;
+      }
+
+      .shell {
+        max-width: 1360px;
+        margin: 0 auto;
+        padding: 28px 18px 40px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 18px;
+        align-items: stretch;
+      }
+
+      .glass {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        backdrop-filter: blur(18px);
+        box-shadow: var(--shadow);
+      }
+
+      .hero-panel {
+        padding: 28px;
+        border-radius: 28px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .hero-panel::after {
+        content: "";
+        position: absolute;
+        inset: auto -70px -70px auto;
+        width: 180px;
+        height: 180px;
+        background: radial-gradient(circle, rgba(239, 108, 55, 0.35), transparent 65%);
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        gap: 10px;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.72);
+        color: var(--brand-deep);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 0.74rem;
+      }
+
+      h1 {
+        margin: 18px 0 10px;
+        font-size: clamp(2.4rem, 4vw, 4.8rem);
+        line-height: 0.92;
+        font-weight: 900;
+        letter-spacing: -0.04em;
+      }
+
+      .hero-copy {
+        max-width: 52rem;
+        margin: 0;
+        font-size: 1.06rem;
+        line-height: 1.7;
+        color: var(--muted);
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 22px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 16px;
+        border-radius: 14px;
+        text-decoration: none;
+        font-weight: 700;
+        border: 1px solid transparent;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .button:hover { transform: translateY(-1px); }
+      .button.primary { background: var(--ink); color: #fff; box-shadow: 0 10px 28px rgba(26, 35, 51, 0.18); }
+      .button.secondary { background: rgba(255,255,255,0.7); color: var(--ink); border-color: var(--line); }
+
+      .status-stack {
+        padding: 24px;
+        border-radius: 28px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .status-card {
+        padding: 18px;
+        border-radius: 20px;
+        background: rgba(255,255,255,0.75);
+        border: 1px solid var(--line);
+      }
+
+      .status-label {
+        color: var(--muted);
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 8px;
+      }
+
+      .status-value {
+        font-size: 2rem;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+      }
+
+      .status-note {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 18px;
+      }
+
+      .metric {
+        padding: 18px;
+        border-radius: 22px;
+      }
+
+      .metric .name {
+        color: var(--muted);
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .metric .value {
+        margin-top: 10px;
+        font-size: 2rem;
+        font-weight: 900;
+      }
+
+      .metric .sub {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 18px;
+        margin-top: 18px;
+      }
+
+      .panel {
+        padding: 22px;
+        border-radius: 28px;
+      }
+
+      .panel h2 {
+        margin: 0;
+        font-size: 1.25rem;
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+
+      .panel-copy {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .chart {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(46px, 1fr));
+        gap: 10px;
+        align-items: end;
+        min-height: 240px;
+        padding-top: 14px;
+      }
+
+      .bar-group {
+        display: grid;
+        gap: 8px;
+        justify-items: center;
+      }
+
+      .bar {
+        width: 100%;
+        min-height: 8px;
+        border-radius: 999px 999px 14px 14px;
+        background: linear-gradient(180deg, var(--brand), var(--brand-deep));
+        box-shadow: 0 12px 18px rgba(239, 108, 55, 0.2);
+      }
+
+      .bar-value {
+        font-weight: 700;
+        font-size: 0.88rem;
+      }
+
+      .bar-label {
+        font-size: 0.74rem;
+        color: var(--muted);
+      }
+
+      .donut-row {
+        display: grid;
+        grid-template-columns: 190px 1fr;
+        gap: 20px;
+        align-items: center;
+      }
+
+      .donut {
+        width: 190px;
+        height: 190px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: conic-gradient(var(--teal) 0deg, var(--teal) 120deg, var(--gold) 120deg, var(--gold) 240deg, var(--danger) 240deg, var(--danger) 360deg);
+        position: relative;
+      }
+
+      .donut::before {
+        content: "";
+        width: 112px;
+        height: 112px;
+        border-radius: 50%;
+        background: rgba(255,250,243,0.95);
+        box-shadow: inset 0 0 0 1px var(--line);
+      }
+
+      .donut-center {
+        position: absolute;
+        text-align: center;
+      }
+
+      .donut-center strong {
+        display: block;
+        font-size: 2rem;
+        line-height: 1;
+      }
+
+      .legend {
+        display: grid;
+        gap: 10px;
+      }
+
+      .legend-row {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 10px;
+        align-items: center;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(255,255,255,0.72);
+        border: 1px solid var(--line);
+      }
+
+      .swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .table th,
+      .table td {
+        padding: 12px 10px;
+        border-bottom: 1px solid rgba(26, 35, 51, 0.08);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .table th {
+        color: var(--muted);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .event-text {
+        max-width: 40ch;
+        color: var(--ink);
+      }
+
+      .pill {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .pill.positive { background: rgba(31,157,139,0.14); color: #16695d; }
+      .pill.neutral { background: rgba(216,168,64,0.18); color: #89691e; }
+      .pill.negative { background: rgba(209,73,91,0.14); color: #8f2c3a; }
+      .pill.unknown { background: rgba(96,112,135,0.14); color: #435163; }
+
+      .tiny {
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      .footer-note {
+        margin-top: 18px;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      @media (max-width: 1100px) {
+        .hero,
+        .grid,
+        .metrics,
+        .donut-row {
+          grid-template-columns: 1fr;
+        }
+        .donut {
+          margin: 0 auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <article class="hero-panel glass">
+          <span class="eyebrow">TP Spark Streaming · Flask · Kafka · X API · ML</span>
+          <h1>Live Event Intelligence Dashboard</h1>
+          <p class="hero-copy">
+            This presentation screen shows the end-to-end TP pipeline: collection, Kafka publication,
+            Spark Structured Streaming analysis, sentiment scoring, and optional ML prediction. It is
+            designed for class demonstration mode, so the most useful indicators are visible immediately.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="/api/docs">Open Swagger UI</a>
+            <a class="button secondary" href="/health">Health JSON</a>
+            <a class="button secondary" href="/api/dashboard/summary">Dashboard API</a>
+          </div>
+        </article>
+        <aside class="status-stack glass">
+          <div class="status-card">
+            <div class="status-label">Data Topic</div>
+            <div class="status-value" id="topicName">{{ config["KAFKA_TOPIC_PREDICTIONS"] }}</div>
+            <div class="status-note" id="modeNote">Waiting for Kafka summary...</div>
+          </div>
+          <div class="status-card">
+            <div class="status-label">Broker</div>
+            <div class="status-value">{{ config["KAFKA_BOOTSTRAP_SERVERS"] }}</div>
+            <div class="status-note">Prediction topic first, raw topic fallback.</div>
+          </div>
+          <div class="status-card">
+            <div class="status-label">Refresh</div>
+            <div class="status-value">5s</div>
+            <div class="status-note" id="lastRefresh">No refresh yet.</div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="metrics">
+        <article class="metric glass">
+          <div class="name">Total Events</div>
+          <div class="value" id="metricTotal">0</div>
+          <div class="sub">Recent records available for the dashboard.</div>
+        </article>
+        <article class="metric glass">
+          <div class="name">Positive Ratio</div>
+          <div class="value" id="metricPositiveRatio">0%</div>
+          <div class="sub">Positive sentiment weight in the latest window.</div>
+        </article>
+        <article class="metric glass">
+          <div class="name">Negative Ratio</div>
+          <div class="value" id="metricNegativeRatio">0%</div>
+          <div class="sub">Negative pressure detected in the stream.</div>
+        </article>
+        <article class="metric glass">
+          <div class="name">Signal Balance</div>
+          <div class="value" id="metricBalance">0</div>
+          <div class="sub">Positive count minus negative count.</div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="panel glass">
+          <div class="panel-head">
+            <div>
+              <h2>Event Rhythm</h2>
+              <p class="panel-copy">Recent message volume by timestamp. Useful to show ingestion activity during the demo.</p>
+            </div>
+          </div>
+          <div class="chart" id="timelineChart"></div>
+          <p class="footer-note" id="timelineNote">No timeline data yet.</p>
+        </article>
+
+        <article class="panel glass">
+          <div class="panel-head">
+            <div>
+              <h2>Sentiment Split</h2>
+              <p class="panel-copy">Priority is given to ML sentiment when present, otherwise the lexicon label is used.</p>
+            </div>
+          </div>
+          <div class="donut-row">
+            <div class="donut" id="sentimentDonut">
+              <div class="donut-center">
+                <strong id="donutTotal">0</strong>
+                <span class="tiny">events</span>
+              </div>
+            </div>
+            <div class="legend" id="sentimentLegend"></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="panel glass">
+          <div class="panel-head">
+            <div>
+              <h2>Trending Hashtags</h2>
+              <p class="panel-copy">The top tags extracted from the prediction stream. This helps explain trend detection in class.</p>
+            </div>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Tag</th>
+                <th>Count</th>
+              </tr>
+            </thead>
+            <tbody id="hashtagsBody">
+              <tr><td colspan="2" class="tiny">No hashtags yet.</td></tr>
+            </tbody>
+          </table>
+        </article>
+
+        <article class="panel glass">
+          <div class="panel-head">
+            <div>
+              <h2>Sources</h2>
+              <p class="panel-copy">Where the events came from during the last read of Kafka topics.</p>
+            </div>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Count</th>
+              </tr>
+            </thead>
+            <tbody id="sourcesBody">
+              <tr><td colspan="2" class="tiny">No sources yet.</td></tr>
+            </tbody>
+          </table>
+        </article>
+      </section>
+
+      <section class="panel glass" style="margin-top: 18px;">
+        <div class="panel-head">
+          <div>
+            <h2>Latest Processed Events</h2>
+            <p class="panel-copy">The most recent messages visible to the dashboard, with their source and computed sentiment.</p>
+          </div>
+        </div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Source</th>
+              <th>Sentiment</th>
+              <th>Text</th>
+            </tr>
+          </thead>
+          <tbody id="eventsBody">
+            <tr><td colspan="4" class="tiny">No events yet.</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+
+    <script>
+      const colors = {
+        positive: "#1f9d8b",
+        neutral: "#d8a840",
+        negative: "#d1495b",
+        unknown: "#607087"
+      };
+
+      function formatSentimentPill(label) {
+        const safe = (label || "unknown").toLowerCase();
+        return `<span class="pill ${safe}">${safe}</span>`;
+      }
+
+      function updateMetricText(id, value) {
+        document.getElementById(id).textContent = value;
+      }
+
+      function renderTimeline(items) {
+        const container = document.getElementById("timelineChart");
+        const note = document.getElementById("timelineNote");
+        container.innerHTML = "";
+
+        if (!items.length) {
+          note.textContent = "No timeline data yet.";
+          return;
+        }
+
+        const max = Math.max(...items.map(item => item.count), 1);
+        for (const item of items) {
+          const height = Math.max(12, Math.round((item.count / max) * 190));
+          const node = document.createElement("div");
+          node.className = "bar-group";
+          node.innerHTML = `
+            <div class="bar-value">${item.count}</div>
+            <div class="bar" style="height:${height}px"></div>
+            <div class="bar-label">${item.time}</div>
+          `;
+          container.appendChild(node);
+        }
+        note.textContent = `Showing ${items.length} recent time buckets from Kafka.`;
+      }
+
+      function renderDonut(summary) {
+        const total = summary.total_events || 0;
+        const sentiments = summary.sentiments || {};
+        const positive = sentiments.positive || 0;
+        const neutral = sentiments.neutral || 0;
+        const negative = sentiments.negative || 0;
+        const unknown = sentiments.unknown || 0;
+        const donut = document.getElementById("sentimentDonut");
+        const legend = document.getElementById("sentimentLegend");
+        const denom = Math.max(total, 1);
+
+        const positiveDeg = Math.round((positive / denom) * 360);
+        const neutralDeg = Math.round((neutral / denom) * 360);
+        const negativeDeg = Math.round((negative / denom) * 360);
+        const unknownDeg = 360 - positiveDeg - neutralDeg - negativeDeg;
+
+        donut.style.background = `conic-gradient(
+          ${colors.positive} 0deg ${positiveDeg}deg,
+          ${colors.neutral} ${positiveDeg}deg ${positiveDeg + neutralDeg}deg,
+          ${colors.negative} ${positiveDeg + neutralDeg}deg ${positiveDeg + neutralDeg + negativeDeg}deg,
+          ${colors.unknown} ${positiveDeg + neutralDeg + negativeDeg}deg 360deg
+        )`;
+
+        legend.innerHTML = [
+          ["positive", positive],
+          ["neutral", neutral],
+          ["negative", negative],
+          ["unknown", unknown]
+        ].map(([label, count]) => `
+          <div class="legend-row">
+            <span class="swatch" style="background:${colors[label]}"></span>
+            <strong>${label}</strong>
+            <span>${count}</span>
+          </div>
+        `).join("");
+
+        updateMetricText("donutTotal", total);
+      }
+
+      function renderSimpleTable(bodyId, rows, columns, emptyMessage) {
+        const body = document.getElementById(bodyId);
+        if (!rows.length) {
+          body.innerHTML = `<tr><td colspan="${columns.length}" class="tiny">${emptyMessage}</td></tr>`;
+          return;
+        }
+        body.innerHTML = rows.map(row => `
+          <tr>${columns.map(column => `<td>${column(row)}</td>`).join("")}</tr>
+        `).join("");
+      }
+
+      async function refreshDashboard() {
+        try {
+          const response = await fetch("/api/dashboard/summary");
+          const summary = await response.json();
+
+          updateMetricText("metricTotal", summary.total_events || 0);
+          updateMetricText("metricPositiveRatio", `${summary.health?.positive_ratio ?? 0}%`);
+          updateMetricText("metricNegativeRatio", `${summary.health?.negative_ratio ?? 0}%`);
+          updateMetricText("metricBalance", summary.health?.sentiment_balance ?? 0);
+          updateMetricText("topicName", summary.active_topic || "n/a");
+
+          const modeText = summary.error
+            ? `Kafka unavailable: ${summary.error}`
+            : summary.mode === "processed"
+              ? "Reading enriched Spark output from the predictions topic."
+              : "Predictions topic empty, falling back to raw Kafka events.";
+
+          document.getElementById("modeNote").textContent = modeText;
+          document.getElementById("lastRefresh").textContent = `Last refresh: ${new Date().toLocaleTimeString()}`;
+
+          renderTimeline(summary.timeline || []);
+          renderDonut(summary);
+
+          renderSimpleTable(
+            "hashtagsBody",
+            summary.top_hashtags || [],
+            [
+              row => `<strong>#${row.tag}</strong>`,
+              row => row.count
+            ],
+            "No hashtags yet."
+          );
+
+          renderSimpleTable(
+            "sourcesBody",
+            Object.entries(summary.sources || {}).map(([source, count]) => ({ source, count })),
+            [
+              row => `<strong>${row.source}</strong>`,
+              row => row.count
+            ],
+            "No sources yet."
+          );
+
+          renderSimpleTable(
+            "eventsBody",
+            summary.latest_events || [],
+            [
+              row => `<span class="tiny">${(row.ingested_at || row.created_at || "").replace("T", " ").replace("Z", "")}</span>`,
+              row => `<strong>${row.source || "unknown"}</strong>`,
+              row => formatSentimentPill(row.ml_sentiment || row.lexicon_sentiment || "unknown"),
+              row => `<div class="event-text">${row.text || ""}</div>`
+            ],
+            "No events yet."
+          );
+        } catch (error) {
+          document.getElementById("modeNote").textContent = `Dashboard refresh failed: ${error}`;
+        }
+      }
+
+      refreshDashboard();
+      setInterval(refreshDashboard, 5000);
+    </script>
+  </body>
+  </html>

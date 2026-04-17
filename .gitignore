@@ -1,0 +1,36 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Virtual environments
+.venv/
+venv/
+
+# Python caches and tooling
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Spark and runtime outputs
+checkpoints/
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Local data and model artifacts
+models/
+
+# IDE and OS files
+.idea/
+.vscode/
+Thumbs.db
+Desktop.ini
