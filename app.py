@@ -116,10 +116,17 @@ def publish_sample():
 
 @app.post("/publish/bluesky")
 def publish_from_bluesky():
+    query = request.args.get("query", default=app.config["BLUESKY_QUERY"], type=str)
+    limit = request.args.get("limit", default=app.config["BLUESKY_SEARCH_LIMIT"], type=int)
+    if not query or not query.strip():
+        return jsonify({"error": "query must not be empty."}), HTTPStatus.BAD_REQUEST
+    if limit < 1 or limit > 100:
+        return jsonify({"error": "limit must be between 1 and 100."}), HTTPStatus.BAD_REQUEST
+
     client = BlueskyClient(
         api_base_url=app.config["BLUESKY_API_BASE_URL"],
-        query=app.config["BLUESKY_QUERY"],
-        limit=app.config["BLUESKY_SEARCH_LIMIT"],
+        query=query.strip(),
+        limit=limit,
     )
     producer = None
     try:
@@ -137,7 +144,15 @@ def publish_from_bluesky():
         if producer is not None:
             producer.close()
 
-    return jsonify({"published": len(posts), "topic": app.config["KAFKA_TOPIC_RAW"]})
+    response = {
+        "published": len(posts),
+        "topic": app.config["KAFKA_TOPIC_RAW"],
+        "query": query.strip(),
+    }
+    if not posts:
+        response["warning"] = "No Bluesky posts matched the query."
+
+    return jsonify(response)
 
 
 if __name__ == "__main__":

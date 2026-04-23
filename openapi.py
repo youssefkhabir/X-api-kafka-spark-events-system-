@@ -76,15 +76,32 @@ def build_openapi_spec(base_url: str) -> dict[str, Any]:
             "/publish/bluesky": {
                 "post": {
                     "summary": "Fetch recent Bluesky posts and publish them into Kafka",
+                    "parameters": [
+                        {
+                            "name": "query",
+                            "in": "query",
+                            "schema": {"type": "string"},
+                            "description": "Search query to send to Bluesky. Defaults to the configured query.",
+                            "example": "spark",
+                        },
+                        {
+                            "name": "limit",
+                            "in": "query",
+                            "schema": {"type": "integer", "minimum": 1, "maximum": 100},
+                            "description": "Maximum number of Bluesky posts to publish.",
+                            "example": 10,
+                        },
+                    ],
                     "responses": {
                         "200": {
                             "description": "Bluesky messages published successfully.",
                             "content": {
                                 "application/json": {
-                                    "example": {"published": 10, "topic": "raw_posts"}
+                                    "example": {"published": 5, "topic": "raw_posts", "query": "spark"}
                                 }
                             },
                         },
+                        "400": {"description": "Invalid query parameters."},
                         "502": {"description": "Remote Bluesky API failure or Kafka publishing failure."},
                     },
                 }

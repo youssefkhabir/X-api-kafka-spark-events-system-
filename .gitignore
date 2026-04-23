@@ -29,6 +29,7 @@ derby.log
 
 # Local data and model artifacts
 models/
+data/sentiment140/
 
 # IDE and OS files
 .idea/
