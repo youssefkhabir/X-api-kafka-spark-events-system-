@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import sys
 
@@ -58,6 +59,56 @@ def maybe_load_model(model_path: Path):
     return None
 
 
+def _is_wsl() -> bool:
+    if os.getenv("WSL_DISTRO_NAME"):
+        return True
+
+    try:
+        return "microsoft" in Path("/proc/version").read_text(encoding="utf-8").lower()
+    except OSError:
+        return False
+
+
+def _resolve_windows_host_from_wsl() -> str | None:
+    try:
+        for line in Path("/etc/resolv.conf").read_text(encoding="utf-8").splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[0] == "nameserver":
+                return parts[1]
+    except OSError:
+        return None
+
+    return None
+
+
+def normalize_kafka_bootstrap_servers(bootstrap_servers: str) -> str:
+    if not _is_wsl():
+        return bootstrap_servers
+
+    windows_host = _resolve_windows_host_from_wsl()
+    if not windows_host:
+        return bootstrap_servers
+
+    normalized_servers: list[str] = []
+    for server in bootstrap_servers.split(","):
+        value = server.strip()
+        if not value:
+            continue
+
+        host, separator, port = value.rpartition(":")
+        if not separator:
+            normalized_servers.append(value)
+            continue
+
+        if host in {"localhost", "127.0.0.1", "::1", "[::1]"}:
+            normalized_servers.append(f"{windows_host}:{port}")
+            continue
+
+        normalized_servers.append(value)
+
+    return ",".join(normalized_servers) if normalized_servers else bootstrap_servers
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--kafka-bootstrap", default="localhost:9092")
@@ -66,13 +117,17 @@ def main() -> None:
     parser.add_argument("--checkpoint", default="checkpoints/spark_sentiment")
     parser.add_argument("--model-path", default="models/sentiment_model.joblib")
     args = parser.parse_args()
+    kafka_bootstrap = normalize_kafka_bootstrap_servers(args.kafka_bootstrap)
+
+    if kafka_bootstrap != args.kafka_bootstrap:
+        print(f"Resolved Kafka bootstrap servers for WSL: {kafka_bootstrap}")
 
     spark = build_spark_session()
     spark.sparkContext.setLogLevel("WARN")
 
     raw_stream = (
         spark.readStream.format("kafka")
-        .option("kafka.bootstrap.servers", args.kafka_bootstrap)
+        .option("kafka.bootstrap.servers", kafka_bootstrap)
         .option("subscribe", args.topic)
         .option("startingOffsets", "latest")
         .load()
@@ -165,15 +220,18 @@ def main() -> None:
         )
         .writeStream.outputMode("append")
         .format("kafka")
-        .option("kafka.bootstrap.servers", args.kafka_bootstrap)
+        .option("kafka.bootstrap.servers", kafka_bootstrap)
         .option("topic", args.predictions_topic)
         .option("checkpointLocation", f"{args.checkpoint}/predictions")
         .start()
     )
 
-    sentiment_query.awaitTermination()
-    hashtag_query.awaitTermination()
-    predictions_query.awaitTermination()
+    try:
+        spark.streams.awaitAnyTermination()
+    finally:
+        for query in (sentiment_query, hashtag_query, predictions_query):
+            if query.isActive:
+                query.stop()
 
 
 if __name__ == "__main__":

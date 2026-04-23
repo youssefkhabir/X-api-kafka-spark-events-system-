@@ -377,12 +377,12 @@
     <main class="shell">
       <section class="hero">
         <article class="hero-panel glass">
-          <span class="eyebrow">TP Spark Streaming · Flask · Kafka · X API · ML</span>
+          <span class="eyebrow">Spark Streaming | Flask | Kafka | Bluesky API | ML</span>
           <h1>Live Event Intelligence Dashboard</h1>
           <p class="hero-copy">
-            This presentation screen shows the end-to-end TP pipeline: collection, Kafka publication,
+            This presentation screen shows the end-to-end real-time pipeline: collection, Kafka publication,
             Spark Structured Streaming analysis, sentiment scoring, and optional ML prediction. It is
-            designed for class demonstration mode, so the most useful indicators are visible immediately.
+            designed for demo mode, so the most useful indicators are visible immediately.
           </p>
           <div class="hero-actions">
             <a class="button primary" href="/api/docs">Open Swagger UI</a>
@@ -538,7 +538,12 @@
 
       function formatSentimentPill(label) {
         const safe = (label || "unknown").toLowerCase();
-        return `<span class="pill ${safe}">${safe}</span>`;
+        const allowed = ["positive", "neutral", "negative", "unknown"];
+        const className = allowed.includes(safe) ? safe : "unknown";
+        const pill = document.createElement("span");
+        pill.className = `pill ${className}`;
+        pill.textContent = safe;
+        return pill;
       }
 
       function updateMetricText(id, value) {
@@ -609,15 +614,36 @@
         updateMetricText("donutTotal", total);
       }
 
+      function appendCell(rowNode, value) {
+        const cell = document.createElement("td");
+        if (value instanceof Node) {
+          cell.appendChild(value);
+        } else {
+          cell.textContent = String(value ?? "");
+        }
+        rowNode.appendChild(cell);
+      }
+
       function renderSimpleTable(bodyId, rows, columns, emptyMessage) {
         const body = document.getElementById(bodyId);
+        body.replaceChildren();
         if (!rows.length) {
-          body.innerHTML = `<tr><td colspan="${columns.length}" class="tiny">${emptyMessage}</td></tr>`;
+          const emptyRow = document.createElement("tr");
+          const emptyCell = document.createElement("td");
+          emptyCell.colSpan = columns.length;
+          emptyCell.className = "tiny";
+          emptyCell.textContent = emptyMessage;
+          emptyRow.appendChild(emptyCell);
+          body.appendChild(emptyRow);
           return;
         }
-        body.innerHTML = rows.map(row => `
-          <tr>${columns.map(column => `<td>${column(row)}</td>`).join("")}</tr>
-        `).join("");
+        for (const item of rows) {
+          const rowNode = document.createElement("tr");
+          for (const column of columns) {
+            appendCell(rowNode, column(item));
+          }
+          body.appendChild(rowNode);
+        }
       }
 
       async function refreshDashboard() {
@@ -647,7 +673,11 @@
             "hashtagsBody",
             summary.top_hashtags || [],
             [
-              row => `<strong>#${row.tag}</strong>`,
+              row => {
+                const strong = document.createElement("strong");
+                strong.textContent = `#${row.tag}`;
+                return strong;
+              },
               row => row.count
             ],
             "No hashtags yet."
@@ -657,7 +687,11 @@
             "sourcesBody",
             Object.entries(summary.sources || {}).map(([source, count]) => ({ source, count })),
             [
-              row => `<strong>${row.source}</strong>`,
+              row => {
+                const strong = document.createElement("strong");
+                strong.textContent = row.source;
+                return strong;
+              },
               row => row.count
             ],
             "No sources yet."
@@ -667,10 +701,24 @@
             "eventsBody",
             summary.latest_events || [],
             [
-              row => `<span class="tiny">${(row.ingested_at || row.created_at || "").replace("T", " ").replace("Z", "")}</span>`,
-              row => `<strong>${row.source || "unknown"}</strong>`,
+              row => {
+                const span = document.createElement("span");
+                span.className = "tiny";
+                span.textContent = (row.ingested_at || row.created_at || "").replace("T", " ").replace("Z", "");
+                return span;
+              },
+              row => {
+                const strong = document.createElement("strong");
+                strong.textContent = row.source || "unknown";
+                return strong;
+              },
               row => formatSentimentPill(row.ml_sentiment || row.lexicon_sentiment || "unknown"),
-              row => `<div class="event-text">${row.text || ""}</div>`
+              row => {
+                const div = document.createElement("div");
+                div.className = "event-text";
+                div.textContent = row.text || "";
+                return div;
+              }
             ],
             "No events yet."
           );

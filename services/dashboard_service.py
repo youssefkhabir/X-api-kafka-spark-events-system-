@@ -3,10 +3,23 @@ from __future__ import annotations
 import json
 from collections import Counter, defaultdict
 from datetime import datetime
+from time import monotonic
 from typing import Any
 
 from kafka import KafkaConsumer, TopicPartition
 from kafka.errors import KafkaError
+
+
+CACHE_TTL_SECONDS = 3.0
+_SUMMARY_CACHE: dict[tuple[str, str, str], tuple[float, dict[str, Any]]] = {}
+
+
+def _decode_json_payload(raw: bytes) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
 
 
 def _build_consumer(bootstrap_servers: str) -> KafkaConsumer:
@@ -14,7 +27,7 @@ def _build_consumer(bootstrap_servers: str) -> KafkaConsumer:
         bootstrap_servers=bootstrap_servers,
         enable_auto_commit=False,
         consumer_timeout_ms=1500,
-        value_deserializer=lambda raw: json.loads(raw.decode("utf-8")),
+        value_deserializer=_decode_json_payload,
         key_deserializer=lambda raw: raw.decode("utf-8") if raw else None,
     )
 
@@ -47,7 +60,7 @@ def read_recent_messages(bootstrap_servers: str, topic: str, limit: int = 200) -
             for records in batch.values():
                 for record in records:
                     payload = record.value
-                    if isinstance(payload, dict):
+                    if payload is not None:
                         messages.append(payload)
                     if len(messages) >= limit:
                         break
@@ -113,6 +126,12 @@ def build_dashboard_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def read_dashboard_summary(bootstrap_servers: str, predictions_topic: str, raw_topic: str) -> dict[str, Any]:
+    cache_key = (bootstrap_servers, predictions_topic, raw_topic)
+    cached = _SUMMARY_CACHE.get(cache_key)
+    now = monotonic()
+    if cached and now - cached[0] < CACHE_TTL_SECONDS:
+        return cached[1]
+
     try:
         events = read_recent_messages(bootstrap_servers, predictions_topic, limit=200)
         active_topic = predictions_topic
@@ -122,9 +141,10 @@ def read_dashboard_summary(bootstrap_servers: str, predictions_topic: str, raw_t
         summary = build_dashboard_summary(events)
         summary["active_topic"] = active_topic
         summary["mode"] = "processed" if active_topic == predictions_topic else "fallback_raw"
+        _SUMMARY_CACHE[cache_key] = (now, summary)
         return summary
     except KafkaError as exc:
-        return {
+        summary = {
             "total_events": 0,
             "sentiments": {"positive": 0, "negative": 0, "neutral": 0, "unknown": 0},
             "sources": {},
@@ -136,3 +156,5 @@ def read_dashboard_summary(bootstrap_servers: str, predictions_topic: str, raw_t
             "mode": "unavailable",
             "error": str(exc),
         }
+        _SUMMARY_CACHE[cache_key] = (now, summary)
+        return summary

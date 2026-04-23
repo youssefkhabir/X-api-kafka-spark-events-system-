@@ -46,7 +46,7 @@ Cette architecture se compose de cinq blocs principaux :
 Le systeme prend en charge deux modes d'alimentation :
 
 - un mode local base sur un fichier JSONL d'exemple
-- un mode distant base sur l'API X via un bearer token
+- un mode distant base sur l'API publique de Bluesky
 
 Le mode local permet de tester et de presenter le projet sans dependre d'une API externe. Le mode distant permet de montrer une integration avec une source reelle.
 
@@ -116,7 +116,7 @@ Le pipeline complet peut etre decrit comme suit :
 
 ### Etape 1 : ingestion
 
-Un message est recupere soit depuis le fichier local, soit depuis l'API X. Flask convertit ensuite ce message dans un format JSON uniforme contenant les champs principaux :
+Un message est recupere soit depuis le fichier local, soit depuis l'API publique de Bluesky. Flask convertit ensuite ce message dans un format JSON uniforme contenant les champs principaux :
 
 - identifiant
 - source
@@ -216,7 +216,7 @@ Les principales routes exposees sont :
 - `GET /`
 - `GET /health`
 - `POST /publish/sample`
-- `POST /publish/x`
+- `POST /publish/bluesky`
 - `GET /api/openapi.json`
 - `GET /api/docs`
 - `GET /api/dashboard/summary`
@@ -252,7 +252,7 @@ Le projet reste volontairement compact. Il presente donc certaines limites :
 
 - le modele ML repose sur un tres petit jeu d'apprentissage
 - le dashboard lit Kafka directement, sans couche de stockage historique
-- l'API X depend des droits d'acces du compte developpeur
+- la disponibilite de l'API publique Bluesky peut varier selon les limites de service
 - la visualisation reste simple et cible surtout la demonstration
 
 Ces limites sont acceptees car elles permettent de garder un systeme lisible et facile a faire evoluer.

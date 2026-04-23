@@ -5,6 +5,7 @@
 
 # Virtual environments
 .venv/
+.venv-*/
 venv/
 
 # Python caches and tooling

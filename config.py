@@ -16,9 +16,9 @@ class Config:
     KAFKA_TOPIC_RAW = os.getenv("KAFKA_TOPIC_RAW", "raw_posts")
     KAFKA_TOPIC_PREDICTIONS = os.getenv("KAFKA_TOPIC_PREDICTIONS", "predictions")
 
-    X_BEARER_TOKEN = os.getenv("X_BEARER_TOKEN", "")
-    X_QUERY = os.getenv("X_QUERY", "(spark OR kafka OR flask) lang:en -is:retweet")
-    X_SEARCH_MAX_RESULTS = int(os.getenv("X_SEARCH_MAX_RESULTS", "10"))
+    BLUESKY_API_BASE_URL = os.getenv("BLUESKY_API_BASE_URL", "https://api.bsky.app")
+    BLUESKY_QUERY = os.getenv("BLUESKY_QUERY", "spark kafka flask")
+    BLUESKY_SEARCH_LIMIT = int(os.getenv("BLUESKY_SEARCH_LIMIT", "10"))
 
     SAMPLE_DATA_PATH = BASE_DIR / "data" / "sample_posts.jsonl"
     MODEL_PATH = BASE_DIR / os.getenv("MODEL_PATH", "models/sentiment_model.joblib")
